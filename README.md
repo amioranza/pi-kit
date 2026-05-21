@@ -10,6 +10,12 @@ Default startup uses the kit defaults from `spec.yaml`:
 sbx run --kit ./pi-kit/ pi
 ```
 
+You can also start directly from GitHub without a local checkout:
+
+```bash
+sbx run --kit "git+https://github.com/amioranza/pi-kit.git#dir=." pi -- --provider ollama --model qwen3.6:27b-coding-mxfp8
+```
+
 Current default model:
 
 ```text
@@ -112,6 +118,7 @@ Current profiles:
 - `node.txt` — npm, Node.js, pnpm, yarn, Deno, JSR
 - `rust.txt` — crates.io, Cargo index, rustup/toolchains
 - `go.txt` — Go proxy, checksum DB, Go downloads
+- `python.txt` — Python.org, PyPI, pip bootstrap, Python package files
 - `tauri.txt` — common Linux/Tauri dependency sources
 - `ai.txt` — AI APIs and host Ollama
 
@@ -124,7 +131,7 @@ node pi-kit/scripts/render-allowed-domains.js
 Or generate from selected profiles:
 
 ```bash
-node pi-kit/scripts/render-allowed-domains.js base node rust ai
+node pi-kit/scripts/render-allowed-domains.js base node rust python ai
 ```
 
 The generator rewrites only the `allowedDomains` block in `spec.yaml`.

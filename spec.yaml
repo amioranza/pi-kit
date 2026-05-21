@@ -198,7 +198,7 @@ commands:
 network:
   allowedDomains:
     # BEGIN GENERATED DOMAIN PROFILES
-    # Source: domain-profiles/base.txt, domain-profiles/node.txt, domain-profiles/rust.txt, domain-profiles/go.txt, domain-profiles/tauri.txt, domain-profiles/ai.txt
+    # Source: domain-profiles/base.txt, domain-profiles/node.txt, domain-profiles/rust.txt, domain-profiles/go.txt, domain-profiles/python.txt, domain-profiles/tauri.txt, domain-profiles/ai.txt
     - "*.bitbucket.org:443"
     - "*.crates.io:443"
     - "*.deno.land:443"
@@ -209,6 +209,9 @@ network:
     - "*.nodejs.org:443"
     - "*.npmjs.org:443"
     - "*.pi.dev:443"
+    - "*.pypi.org:443"
+    - "*.python.org:443"
+    - "*.pythonhosted.org:443"
     - "*.registry.npmjs.org:443"
     - "*.yarnpkg.com:443"
     - "api.anthropic.com:443"
@@ -216,10 +219,12 @@ network:
     - "archive.ubuntu.com:443"
     - "archive.ubuntu.com:80"
     - "bitbucket.org:443"
+    - "bootstrap.pypa.io:443"
     - "crates.io:443"
     - "deb.debian.org:443"
     - "deb.debian.org:80"
     - "deno.land:443"
+    - "files.pythonhosted.org:443"
     - "generativelanguage.googleapis.com:443"
     - "get.pnpm.io:443"
     - "github.com:443"
@@ -237,6 +242,8 @@ network:
     - "pi.dev:443"
     - "pnpm.io:443"
     - "proxy.golang.org:443"
+    - "pypi.org:443"
+    - "python.org:443"
     - "raw.githubusercontent.com:443"
     - "registry.npmjs.org:443"
     - "registry.yarnpkg.com:443"
