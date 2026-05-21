@@ -2,6 +2,12 @@
 
 This kit runs the Pi coding agent inside a Docker Sandbox with support for host Ollama, OpenRouter, and common development ecosystems.
 
+## Requirements
+
+Install Docker's `sbx` CLI before using this kit. See the Docker Sandboxes get started guide for platform requirements and install instructions:
+
+https://docs.docker.com/ai/sandboxes/get-started/
+
 ## Start Pi
 
 Default startup uses the kit defaults from `spec.yaml`:
