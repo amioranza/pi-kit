@@ -7,7 +7,7 @@ const specPath = path.join(kitDir, "spec.yaml");
 const profilesDir = path.join(kitDir, "domain-profiles");
 const profiles = process.argv.slice(2).length
   ? process.argv.slice(2)
-  : ["base", "node", "rust", "go", "tauri", "ai"];
+  : ["base", "node", "rust", "go", "python", "tauri", "ai"];
 
 function readProfile(name) {
   const file = path.join(profilesDir, `${name}.txt`);

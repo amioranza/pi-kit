@@ -1,0 +1,8 @@
+# Python, PyPI, pip, and Python release downloads
+pypi.org:443
+*.pypi.org:443
+files.pythonhosted.org:443
+*.pythonhosted.org:443
+python.org:443
+*.python.org:443
+bootstrap.pypa.io:443
