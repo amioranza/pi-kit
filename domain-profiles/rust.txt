@@ -1,0 +1,8 @@
+# Rust, Cargo, and rustup
+crates.io:443
+*.crates.io:443
+index.crates.io:443
+static.crates.io:443
+static.rust-lang.org:443
+static.rust-lang.org:80
+rust-lang.github.io:443

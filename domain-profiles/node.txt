@@ -1,0 +1,16 @@
+# Node.js, npm, pnpm, yarn, and common JS runtime downloads
+registry.npmjs.org:443
+*.registry.npmjs.org:443
+npm.org:443
+*.npmjs.org:443
+registry.yarnpkg.com:443
+nodejs.org:443
+*.nodejs.org:443
+get.pnpm.io:443
+pnpm.io:443
+yarnpkg.com:443
+*.yarnpkg.com:443
+deno.land:443
+*.deno.land:443
+jsr.io:443
+*.jsr.io:443

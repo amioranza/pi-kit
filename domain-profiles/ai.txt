@@ -1,0 +1,6 @@
+# AI providers and local host services
+api.anthropic.com:443
+api.openai.com:443
+generativelanguage.googleapis.com:443
+openrouter.ai:443
+host.docker.internal:11434

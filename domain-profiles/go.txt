@@ -1,0 +1,6 @@
+# Go modules, checksum database, and toolchain downloads
+proxy.golang.org:443
+sum.golang.org:443
+golang.org:443
+go.dev:443
+*.go.dev:443

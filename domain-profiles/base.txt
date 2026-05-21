@@ -1,0 +1,12 @@
+# Pi + source control + common release assets
+pi.dev:443
+*.pi.dev:443
+github.com:443
+*.github.com:443
+objects.githubusercontent.com:443
+release-assets.githubusercontent.com:443
+raw.githubusercontent.com:443
+gitlab.com:443
+*.gitlab.com:443
+bitbucket.org:443
+*.bitbucket.org:443

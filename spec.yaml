@@ -1,0 +1,336 @@
+schemaVersion: "1"
+kind: agent
+name: pi
+displayName: Pi - Coding Agent
+description: >
+  Pi coding agent running in a Docker sandbox with isolated microVM.
+  Supports multiple providers (Anthropic, OpenAI, Google, etc.) via
+  the sandbox credential proxy.
+
+agent:
+  image: "docker/sandbox-templates:shell-docker"
+  aiFilename: AGENTS.md
+  persistence: persistent
+  entrypoint:
+    run: ["/home/agent/.pi/agent/pi-entrypoint"]
+
+commands:
+  install:
+    - command: "curl -fsSL https://pi.dev/install.sh | sh"
+      user: "1000"
+      description: "Install Pi coding agent globally"
+    - command: "curl -fsSL https://deb.nodesource.com/setup_23.x | bash - && sudo apt-get install -y nodejs"
+      user: "0"
+      description: "Install latest Node.js (v23) for undici v8 compatibility"
+
+  startup:
+    - command: ["sh", "-c", "pi update --self 2>/dev/null || true"]
+      user: "1000"
+      description: "Ensure pi is up to date on each sandbox start"
+    - command:
+        - sh
+        - -c
+        - |
+          mkdir -p /home/agent/.pi/agent
+          node <<'NODE'
+          const fs = require("fs");
+          const http = require("http");
+          const https = require("https");
+          
+          const MODELS_JSON = "/home/agent/.pi/agent/models.json";
+          const FALLBACK_OLLAMA_MODELS = ["llama3.1:8b", "qwen2.5-coder:7b"];
+          const FALLBACK_OPENROUTER_MODELS = [
+            "anthropic/claude-sonnet-4",
+            "openai/gpt-4.1",
+            "google/gemini-2.5-pro",
+            "meta-llama/llama-3.3-70b-instruct"
+          ];
+          
+          function getJson(url, timeoutMs = 2500) {
+            const client = url.startsWith("https:") ? https : http;
+          
+            return new Promise((resolve, reject) => {
+              const request = client.get(url, response => {
+                let body = "";
+                response.setEncoding("utf8");
+                response.on("data", chunk => body += chunk);
+                response.on("end", () => {
+                  if (response.statusCode < 200 || response.statusCode >= 300) {
+                    reject(new Error(url + " returned HTTP " + response.statusCode));
+                    return;
+                  }
+          
+                  try {
+                    resolve(JSON.parse(body));
+                  } catch (error) {
+                    reject(error);
+                  }
+                });
+              });
+          
+              request.setTimeout(timeoutMs, () => request.destroy(new Error(url + " timed out")));
+              request.on("error", reject);
+            });
+          }
+          
+          async function discoverOllamaModels() {
+            try {
+              const tags = await getJson("http://host.docker.internal:11434/api/tags");
+              const names = (tags.models || []).map(model => model.name).filter(Boolean).sort();
+              return names.length ? names : FALLBACK_OLLAMA_MODELS;
+            } catch (error) {
+              console.warn("Ollama model discovery failed: " + error.message);
+              return FALLBACK_OLLAMA_MODELS;
+            }
+          }
+          
+          async function discoverOpenRouterModels() {
+            try {
+              const catalog = await getJson("https://openrouter.ai/api/v1/models");
+              const preferred = new Set(FALLBACK_OPENROUTER_MODELS);
+              const discovered = (catalog.data || []).map(model => model.id).filter(Boolean);
+              const useful = discovered.filter(id => preferred.has(id));
+              return (useful.length ? useful : FALLBACK_OPENROUTER_MODELS).sort();
+            } catch (error) {
+              console.warn("OpenRouter model discovery failed: " + error.message);
+              return FALLBACK_OPENROUTER_MODELS;
+            }
+          }
+          
+          function ollamaProvider(modelIds) {
+            return {
+              baseUrl: "http://host.docker.internal:11434/v1",
+              api: "openai-completions",
+              apiKey: "ollama",
+              compat: {
+                supportsDeveloperRole: false,
+                supportsReasoningEffort: false
+              },
+              models: modelIds.map(id => ({ id }))
+            };
+          }
+          
+          function openRouterProvider(modelIds) {
+            return {
+              baseUrl: "https://openrouter.ai/api/v1",
+              api: "openai-completions",
+              apiKey: "OPENROUTER_API_KEY",
+              authHeader: true,
+              headers: {
+                "HTTP-Referer": "https://pi.dev",
+                "X-Title": "Pi Coding Agent"
+              },
+              models: modelIds.map(id => ({ id }))
+            };
+          }
+          
+          async function main() {
+            const [ollamaModels, openRouterModels] = await Promise.all([
+              discoverOllamaModels(),
+              discoverOpenRouterModels()
+            ]);
+          
+            const config = {
+              providers: {
+                ollama: ollamaProvider(ollamaModels),
+                openrouter: openRouterProvider(openRouterModels)
+              }
+            };
+          
+            fs.writeFileSync(MODELS_JSON, JSON.stringify(config, null, 2) + "\n");
+            console.log("Wrote " + MODELS_JSON + " with " + ollamaModels.length + " Ollama model(s) and " + openRouterModels.length + " OpenRouter model(s).");
+          }
+          
+          main().catch(error => {
+            console.error(error);
+            process.exitCode = 1;
+          });
+          NODE
+      user: "1000"
+      description: "Generate pi models.json from independent Ollama and OpenRouter providers"
+
+  initFiles:
+    - path: /home/agent/.pi/agent/pi-entrypoint
+      content: |
+        #!/bin/sh
+        set -eu
+
+        if [ $# -gt 0 ] && [ "$1" = "--" ]; then
+          shift
+        fi
+
+        args=" $* "
+        provider="ollama"
+        model="qwen3:8b"
+        thinking=""
+
+        if [ -n "$thinking" ] && ! echo "$args" | grep -q ' --thinking '; then
+          set -- --thinking "$thinking" "$@"
+        fi
+
+        if [ -n "$model" ] && ! echo "$args" | grep -q ' --model '; then
+          set -- --model "$model" "$@"
+        fi
+
+        if [ -n "$provider" ] && ! echo "$args" | grep -q ' --provider '; then
+          set -- --provider "$provider" "$@"
+        fi
+
+        exec pi "$@"
+      mode: "0755"
+      onlyIfMissing: false
+      description: "Launch pi with kit defaults while allowing sbx agent args to override them"
+
+    - path: /home/agent/.pi/agent/settings.json
+      content: |
+        {
+          "enableInstallTelemetry": false,
+          "PI_SKIP_VERSION_CHECK": false,
+          "defaultProvider": "ollama",
+          "defaultModel": "qwen3:8b",
+          "defaultThinkingLevel": "off"
+        }
+      mode: "0644"
+      onlyIfMissing: true
+      description: "Default pi settings with telemetry disabled"
+
+
+network:
+  allowedDomains:
+    # BEGIN GENERATED DOMAIN PROFILES
+    # Source: domain-profiles/base.txt, domain-profiles/node.txt, domain-profiles/rust.txt, domain-profiles/go.txt, domain-profiles/tauri.txt, domain-profiles/ai.txt
+    - "*.bitbucket.org:443"
+    - "*.crates.io:443"
+    - "*.deno.land:443"
+    - "*.github.com:443"
+    - "*.gitlab.com:443"
+    - "*.go.dev:443"
+    - "*.jsr.io:443"
+    - "*.nodejs.org:443"
+    - "*.npmjs.org:443"
+    - "*.pi.dev:443"
+    - "*.registry.npmjs.org:443"
+    - "*.yarnpkg.com:443"
+    - "api.anthropic.com:443"
+    - "api.openai.com:443"
+    - "archive.ubuntu.com:443"
+    - "archive.ubuntu.com:80"
+    - "bitbucket.org:443"
+    - "crates.io:443"
+    - "deb.debian.org:443"
+    - "deb.debian.org:80"
+    - "deno.land:443"
+    - "generativelanguage.googleapis.com:443"
+    - "get.pnpm.io:443"
+    - "github.com:443"
+    - "gitlab.com:443"
+    - "go.dev:443"
+    - "golang.org:443"
+    - "host.docker.internal:11434"
+    - "index.crates.io:443"
+    - "jsr.io:443"
+    - "nodejs.org:443"
+    - "npm.org:443"
+    - "objects.githubusercontent.com:443"
+    - "openrouter.ai:443"
+    - "packages.microsoft.com:443"
+    - "pi.dev:443"
+    - "pnpm.io:443"
+    - "proxy.golang.org:443"
+    - "raw.githubusercontent.com:443"
+    - "registry.npmjs.org:443"
+    - "registry.yarnpkg.com:443"
+    - "release-assets.githubusercontent.com:443"
+    - "rust-lang.github.io:443"
+    - "security.debian.org:443"
+    - "security.debian.org:80"
+    - "security.ubuntu.com:443"
+    - "security.ubuntu.com:80"
+    - "static.crates.io:443"
+    - "static.rust-lang.org:443"
+    - "static.rust-lang.org:80"
+    - "sum.golang.org:443"
+    - "webkitgtk.org:443"
+    - "yarnpkg.com:443"
+    # END GENERATED DOMAIN PROFILES
+
+  serviceDomains:
+    api.anthropic.com: anthropic
+    api.openai.com: openai
+    generativelanguage.googleapis.com: google
+    openrouter.ai: openrouter
+
+  serviceAuth:
+    anthropic:
+      headerName: x-api-key
+      valueFormat: "%s"
+    openai:
+      headerName: Authorization
+      valueFormat: "Bearer %s"
+    google:
+      headerName: x-goog-api-key
+      valueFormat: "%s"
+    openrouter:
+      headerName: Authorization
+      valueFormat: "Bearer %s"
+
+credentials:
+  sources:
+    anthropic:
+      env:
+        - ANTHROPIC_API_KEY
+    openai:
+      env:
+        - OPENAI_API_KEY
+    google:
+      env:
+        - GOOGLE_API_KEY
+    openrouter:
+      env:
+        - OPENROUTER_API_KEY
+
+environment:
+  variables:
+    IS_SANDBOX: "1"
+    PI_OFFLINE: "0"
+  proxyManaged:
+    - ANTHROPIC_API_KEY
+    - OPENAI_API_KEY
+    - GOOGLE_API_KEY
+    - OPENROUTER_API_KEY
+
+memory: |
+  ## Sandbox Environment
+
+  You are running Pi inside a Docker sandbox with microVM isolation.
+
+   ### Key Facts
+   - The workspace is mounted at its absolute host path
+   - `sudo` is passwordless — use it for apt/pip/npm package installs
+   - Docker Engine is available inside the sandbox for running containers
+   - Containers you start are isolated in the microVM
+   - Your home directory is `/home/agent/`
+   - Pi config is at `~/.pi/agent/`
+
+   ### Working with Tools
+   - Use `!command` to run shell commands and include output in context
+   - Use `!!command` to run commands without including output in context
+   - Type `@` to fuzzy-search and reference project files
+   - Use `/model` to switch models during a session
+   - Use `/tree` to navigate session history and branches
+   - Set `PI_DEFAULT_PROVIDER`, `PI_DEFAULT_MODEL`, and optionally `PI_DEFAULT_THINKING` before starting the sandbox to override the startup model
+
+   ### Credentials
+   - API keys are managed by the host sandbox proxy
+   - Environment variables like ANTHROPIC_API_KEY are set to "proxy-managed"
+   - The proxy injects real credentials on outbound requests automatically
+
+   ### Networking
+   - Outbound traffic is restricted to allowed domains in the kit spec
+   - Host services are reachable via `host.docker.internal`
+   - Published ports must bind to 0.0.0.0, not 127.0.0.1
+
+   ### Git
+   - Git is pre-configured and available
+   - Use branch mode (`--branch`) for isolated work on feature branches
+   - SSH commit signing is supported via forwarded host keys
